@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aqua IQ Pro | Live Animated Fleet</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&display=swap');
+        
+        body { font-family: 'Space Grotesk', sans-serif; background: #050608; color: #e2e8f0; overflow: hidden; }
+        .panel { background: rgba(15, 20, 30, 0.9); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; }
+        
+        /* Seat Booking */
+        .seat { width: 24px; height: 24px; border-radius: 4px; border: 1px solid rgba(34, 211, 238, 0.2); cursor: pointer; transition: 0.3s; }
+        .seat.booked { background: #222; border: none; cursor: not-allowed; }
+        .seat.selected { background: #22d3ee; box-shadow: 0 0 10px #22d3ee; }
+
+        /* Animated Grid Map */
+        #grid-map {
+            height: 380px;
+            background-color: #0b111b;
+            background-image: linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            position: relative;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Bus Sprite Animation */
+        .bus-sprite {
+            position: absolute;
+            width: 35px;
+            height: 20px;
+            background: #22d3ee;
+            border-radius: 4px;
+            transform: translate(-50%, -50%);
+            transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.6);
+            z-index: 100;
+        }
+        .bus-sprite::after {
+            content: '';
+            position: absolute;
+            right: -2px;
+            width: 6px; height: 14px;
+            background: rgba(255,255,255,0.8); /* Windows */
+            border-radius: 2px;
+        }
+
+        .user-dot {
+            position: absolute;
+            width: 12px; height: 12px;
+            background: #fbbf24;
+            border-radius: 50%;
+            border: 2px solid #000;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px #fbbf24;
+        }
+
+        .alert-active { animation: emergency 1s infinite; border: 1px solid #ef4444 !important; }
+        @keyframes emergency { 0%, 100% { background: rgba(239, 68, 68, 0.05); } 50% { background: rgba(239, 68, 68, 0.25); } }
+        
+        .custom-scroll::-webkit-scrollbar { width: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #22d3ee; }
+    </style>
+</head>
+<body class="p-4 lg:p-6">
+
+    <header class="flex flex-col lg:flex-row justify-between items-center mb-6 gap-4 border-b border-white/5 pb-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-cyan-500 rounded flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                <i class="fas fa-bus-alt text-black text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold uppercase italic tracking-tighter">Aqua <span class="text-cyan-400">IQ Pro</span></h1>
+                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">ESP32: 10.109.244.222</p>
+            </div>
+        </div>
+
+        <div class="panel p-2 flex items-center gap-4 bg-white/5">
+            <input type="text" id="startLoc" placeholder="From: Kiribathgoda" class="bg-transparent border-none text-cyan-400 text-[10px] outline-none w-28 px-2">
+            <div class="w-[1px] h-4 bg-white/10"></div>
+            <input type="text" id="endLoc" placeholder="To: Kadawatha" class="bg-transparent border-none text-cyan-400 text-[10px] outline-none w-28 px-2">
+            <button onclick="calculateTrip()" class="bg-cyan-500 text-black font-bold text-[9px] px-4 py-1.5 rounded hover:bg-cyan-400 uppercase tracking-widest">Search</button>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <aside class="lg:col-span-3 space-y-4">
+            <div class="panel p-5">
+                <h3 class="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-4 italic">Bus Seat Layout</h3>
+                <div class="grid grid-cols-4 gap-2 mb-4" id="seatGrid"></div>
+                <button onclick="bookSeats()" class="w-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[9px] py-2 rounded uppercase font-bold hover:bg-cyan-500 hover:text-black transition-all">Confirm Booking</button>
+            </div>
+
+            <div class="panel p-5 border-l-4 border-cyan-500">
+                <p class="text-[9px] text-gray-500 uppercase font-bold mb-1">Trip Fare (LKR)</p>
+                <h2 id="fareVal" class="text-2xl font-bold">0.00</h2>
+                <div class="flex justify-between mt-3 text-[9px] text-gray-500 uppercase font-bold">
+                    <span>Dist: <b id="tripDist" class="text-white">0km</b></span>
+                    <span>Fuel: <b id="fuelVal" class="text-white">0%</b></span>
+                </div>
+            </div>
+
+            <div class="panel p-5 h-[160px] overflow-hidden">
+                <p class="text-[9px] text-gray-500 uppercase font-bold mb-3">Live Logs</p>
+                <div id="logList" class="text-[9px] text-gray-400 space-y-2 custom-scroll overflow-y-auto h-full pr-2"></div>
+            </div>
+        </aside>
+
+        <div class="lg:col-span-6 space-y-4">
+            <div id="grid-map">
+                <div class="absolute top-6 left-6 z-[200]">
+                    <span id="speed" class="text-5xl font-black italic text-white leading-none">0</span>
+                    <p class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest">km/h Speed</p>
+                </div>
+
+                <div id="map-alert" class="absolute inset-0 bg-red-600/10 border-4 border-red-600/50 rounded-2xl hidden flex items-center justify-center">
+                    <div class="bg-red-600 text-white px-4 py-2 font-bold text-xs animate-bounce rounded shadow-xl">BUS APPROACHING < 500M</div>
+                </div>
+
+                <div id="bus-sprite" class="bus-sprite">
+                    <i class="fas fa-bus text-[10px] text-black"></i>
+                </div>
+                
+                <div id="user-dot" class="user-dot"></div>
+
+                <div class="absolute bottom-6 right-6 text-right bg-black/60 p-4 border-r-4 border-cyan-500 rounded-l">
+                    <p class="text-[9px] text-gray-500 uppercase">Distance to you</p>
+                    <p id="distance" class="text-2xl font-bold">0.00 KM</p>
+                    <p id="eta" class="text-[9px] text-cyan-400 font-bold uppercase mt-1 italic">ETA: -- MIN</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div id="brakeCard" class="panel p-4 flex justify-between items-center transition-all">
+                    <div>
+                        <p class="text-[9px] text-gray-500 uppercase font-bold">Brake Sensor</p>
+                        <span id="brakeTemp" class="text-xl font-bold">0°C</span>
+                    </div>
+                    <i id="brakeIcon" class="fas fa-circle text-[8px] text-green-500"></i>
+                </div>
+                <div class="panel p-4 flex justify-between items-center">
+                    <div>
+                        <p class="text-[9px] text-gray-500 uppercase font-bold">Oil Turbidity</p>
+                        <span id="oilDensity" class="text-xl font-bold text-cyan-400">0</span>
+                    </div>
+                    <span class="text-[9px] text-gray-600 font-bold">KG/M³</span>
+                </div>
+            </div>
+        </div>
+
+        <aside class="lg:col-span-3 space-y-4">
+            <div class="panel p-6 text-center bg-gradient-to-br from-cyan-500/5 to-transparent">
+                <p class="text-[10px] text-gray-500 uppercase font-bold mb-2">Live Passengers</p>
+                <h1 id="pCount" class="text-8xl font-black italic">0</h1>
+                <p class="text-[10px] text-gray-600 uppercase mt-2">IR Sensors Active</p>
+                <div class="flex gap-2 mt-6">
+                    <div class="flex-1 bg-white/5 p-2 rounded text-[10px]">D1: <span id="d1">0</span></div>
+                    <div class="flex-1 bg-white/5 p-2 rounded text-[10px]">D2: <span id="d2">0</span></div>
+                </div>
+            </div>
+
+            <div class="panel p-4">
+                <p class="text-[9px] text-gray-500 uppercase font-bold mb-4">Passenger Flow Trend</p>
+                <canvas id="pChart" height="180"></canvas>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        const IP = "10.109.244.222";
+        let busPos = { lat: 0, lng: 0 }, userPos = { lat: 0, lng: 0 };
+        let pChart;
+
+        function init() {
+            renderSeats();
+            setupChart();
+            setInterval(fetchData, 2500);
+            trackUser();
+        }
+
+        function renderSeats() {
+            const grid = document.getElementById('seatGrid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= 28; i++) {
+                const seat = document.createElement('div');
+                seat.className = `seat ${Math.random() > 0.85 ? 'booked' : 'available'}`;
+                if (!seat.classList.contains('booked')) {
+                    seat.onclick = () => seat.classList.toggle('selected');
+                }
+                grid.appendChild(seat);
+            }
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch(`http://${IP}/data`);
+                const data = await res.json();
+
+                // Telemetry
+                document.getElementById('speed').textContent = data.speed;
+                document.getElementById('brakeTemp').textContent = data.brakeTemp + "°C";
+                document.getElementById('oilDensity').textContent = data.oilDensity;
+                document.getElementById('pCount').textContent = data.pCount;
+                document.getElementById('d1').textContent = data.d1;
+                document.getElementById('d2').textContent = data.d2;
+                document.getElementById('fuelVal').textContent = (data.fuelLevel || 74) + "%";
+
+                // Brake Emergency Warning (>50C)
+                const bCard = document.getElementById('brakeCard');
+                if(data.brakeTemp > 50) {
+                    bCard.classList.add('alert-active');
+                    document.getElementById('brakeIcon').classList.replace('text-green-500', 'text-red-500');
+                } else {
+                    bCard.classList.remove('alert-active');
+                    document.getElementById('brakeIcon').classList.replace('text-red-500', 'text-green-500');
+                }
+
+                // Update Bus Sprite Position
+                busPos = { lat: data.lat, lng: data.lng };
+                moveBusSprite(data.lat, data.lng, data.heading || 0);
+                updateAnalytics(data);
+                calculateProximity();
+
+            } catch (e) { console.warn("Node Sync Lost..."); }
+        }
+
+        function moveBusSprite(lat, lng, heading) {
+            const sprite = document.getElementById('bus-sprite');
+            // Mock grid mapping logic
+            const y = (50 + (lat % 0.01) * 9000);
+            const x = (50 + (lng % 0.01) * 9000);
+            sprite.style.top = y + "%";
+            sprite.style.left = x + "%";
+            sprite.style.transform = `translate(-50%, -50%) rotate(${heading}deg)`;
+        }
+
+        function trackUser() {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(pos => {
+                    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    const dot = document.getElementById('user-dot');
+                    const y = (48 + (userPos.lat % 0.01) * 9000);
+                    const x = (48 + (userPos.lng % 0.01) * 9000);
+                    dot.style.top = y + "%";
+                    dot.style.left = x + "%";
+                    calculateProximity();
+                });
+            }
+        }
+
+        function calculateProximity() {
+            if (busPos.lat && userPos.lat) {
+                const d = (Math.abs(busPos.lat - userPos.lat) * 111).toFixed(2);
+                document.getElementById('distance').textContent = d + " KM";
+                document.getElementById('eta').textContent = `ETA: ${Math.round(d/0.5)} MIN`;
+                
+                // 500m Proximity Alert
+                const mapAlert = document.getElementById('map-alert');
+                if (parseFloat(d) < 0.5) mapAlert.classList.remove('hidden');
+                else mapAlert.classList.add('hidden');
+            }
+        }
+
+        function calculateTrip() {
+            const s = document.getElementById('startLoc').value.toLowerCase();
+            const e = document.getElementById('endLoc').value.toLowerCase();
+            if(s.includes('kiri') && e.includes('kada')) {
+                document.getElementById('fareVal').textContent = "75.00";
+                document.getElementById('tripDist').textContent = "5.2km";
+            }
+        }
+
+        function setupChart() {
+            const ctx = document.getElementById('pChart').getContext('2d');
+            pChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#22d3ee', borderWidth: 1, tension: 0.4, pointRadius: 0 }] },
+                options: { responsive: true, plugins: { legend: false }, scales: { x: { display: false }, y: { display: false } } }
+            });
+        }
+
+        function updateAnalytics(data) {
+            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            pChart.data.labels.push(time);
+            pChart.data.datasets[0].data.push(data.pCount);
+            if(pChart.data.labels.length > 12) { pChart.data.labels.shift(); pChart.data.datasets[0].data.shift(); }
+            pChart.update();
+
+            const log = document.getElementById('logList');
+            const div = document.createElement('div');
+            div.textContent = `[${time}] SPEED ${data.speed} | PAX ${data.pCount}`;
+            log.prepend(div);
+            if(log.children.length > 10) log.removeChild(log.lastChild);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
