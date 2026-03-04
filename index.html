@@ -15,32 +15,31 @@
         body { font-family: 'Space Grotesk', sans-serif; background: #050608; color: #e2e8f0; overflow-x: hidden; }
         .card { background: #0c111a; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; transition: 0.3s; }
         #map { height: 420px; border-radius: 16px; border: 1px solid #22d3ee22; }
-        
-        /* Alert Flashing Effect */
         .alert-flash { animation: flash 0.8s infinite alternate; background: #ef4444 !important; color: white !important; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); border-color: white !important; }
         @keyframes flash { from { opacity: 1; } to { opacity: 0.5; } }
-        
         .btn-cyan { background: #22d3ee; color: #000; font-weight: bold; border-radius: 6px; cursor: pointer; }
         .gauge-container { position: relative; width: 40px; height: 100px; background: #1a1f2e; border-radius: 20px; }
         .gauge-fill { position: absolute; bottom: 5px; left: 5px; width: 30px; background: linear-gradient(to top, #22c55e, #f59e0b, #ef4444); border-radius: 15px; transition: height 0.5s; }
-
         .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; transition: .4s; border-radius: 24px; border: 1px solid #22d3ee; }
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 2px; background-color: #22d3ee; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #ef4444; border-color: #ef4444; }
         input:checked + .slider:before { transform: translateX(25px); background-color: white; }
-
-        /* 54 Seats Layout */
         #seatLayout { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; max-height: 280px; overflow-y: auto; padding-right: 5px; }
         #seatLayout::-webkit-scrollbar { width: 4px; }
         #seatLayout::-webkit-scrollbar-thumb { background: #22d3ee; border-radius: 10px; }
         .seat { height: 35px; border: 1px solid #1e293b; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; background: #0c111a; }
         .seat.booked { background: #22d3ee; color: #000; font-weight: bold; }
-
         #toastContainer { position: fixed; top: 20px; right: 20px; z-index: 9999; }
         .toast { background: rgba(239, 68, 68, 0.95); padding: 15px; margin-bottom: 10px; border-radius: 8px; color: white; font-weight: bold; border-left: 5px solid white; animation: slideIn 0.3s forwards; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+        /* Alert log colors per type */
+        .log-brake { color: #ef4444; }
+        .log-oil   { color: #f59e0b; }
+        .log-bus   { color: #22d3ee; }
+        .log-full  { color: #a78bfa; }
     </style>
 </head>
 <body class="p-6">
@@ -48,105 +47,98 @@
     <div id="proximityAlert" class="hidden bg-red-600 text-white text-center py-4 mb-4 font-bold text-2xl animate-pulse rounded-xl border-2 border-white shadow-lg">
         🚨 BUS IS NEARBY! (LESS THAN 500M) 🚨
     </div>
-
     <div id="toastContainer"></div>
 
     <header class="flex justify-between items-center mb-8">
-        <div class="flex items-center gap-4">
-            <h1 class="text-3xl font-bold italic">Aqua <span class="text-cyan-400">IQ Pro</span></h1>
-        </div>
+        <h1 class="text-3xl font-bold italic">Aqua <span class="text-cyan-400">IQ Pro</span></h1>
         <div class="flex gap-3">
-            <input type="text" id="fromLoc" value="delgoda" class="bg-gray-900/50 border border-gray-700 p-2 rounded text-sm w-32 outline-none">
-            <input type="text" id="toLoc" value="gampaha" class="bg-gray-900/50 border border-gray-700 p-2 rounded text-sm w-32 outline-none">
+            <input type="text" value="KATUNAYAKE" class="bg-gray-900/50 border border-gray-700 p-2 rounded text-sm w-32 outline-none">
+            <input type="text" value="NEGOMBO" class="bg-gray-900/50 border border-gray-700 p-2 rounded text-sm w-32 outline-none">
             <label class="flex items-center gap-2 bg-yellow-500/10 px-3 rounded border border-yellow-500/20 cursor-pointer">
-                <input type="checkbox" id="simToggle" checked> <span class="text-xs font-bold text-yellow-500">SIM</span>
+                <input type="checkbox" id="simToggle" checked onchange="handleSimToggle()"> <span class="text-xs font-bold text-yellow-500">SIM</span>
             </label>
-            <button class="btn-cyan px-6 py-2 text-xs uppercase shadow-lg shadow-cyan-500/20">Excel</button>
+            <button class="btn-cyan px-6 py-2 text-xs uppercase">Excel</button>
         </div>
     </header>
 
     <div class="grid grid-cols-12 gap-6">
-        
         <div class="col-span-3 space-y-6">
             <div class="card p-6 border-l-4 border-green-500">
-                <p class="text-[11px] uppercase text-gray-500 mb-2 font-bold tracking-widest">Income</p>
+                <p class="text-[11px] uppercase text-gray-500 font-bold">Income</p>
                 <p class="text-3xl font-bold text-green-400">Rs. <span id="income">0.00</span></p>
-                <div class="mt-4 flex items-center gap-2">
-                    <span class="text-[10px] text-gray-500 uppercase">Fare Rs.</span>
+                <div class="mt-4 flex items-center gap-2 text-[10px]">
+                    <span class="text-gray-500 uppercase">Fare Rs.</span>
                     <input type="number" id="fareInput" value="50" class="bg-transparent text-cyan-400 font-bold w-12 outline-none">
                 </div>
             </div>
-            
             <div class="card p-4">
                 <p class="text-[10px] text-gray-500 uppercase mb-4">Speed Trend</p>
                 <canvas id="speedChart" height="150"></canvas>
             </div>
-
             <div class="card p-4">
-                <p class="text-[10px] text-gray-500 uppercase mb-3 font-bold">Alert Log</p>
-                <div id="alertLog" class="space-y-2 max-h-56 overflow-y-auto text-[10px]"></div>
+                <div class="flex justify-between items-center mb-3">
+                    <p class="text-[10px] text-gray-500 uppercase font-bold">Alert Log</p>
+                    <button onclick="clearLog()" class="text-[9px] text-gray-600 hover:text-red-400 transition-colors uppercase">Clear</button>
+                </div>
+                <div id="alertLog" class="space-y-2 max-h-56 overflow-y-auto text-[10px]">
+                    <p class="text-gray-600 text-[10px] italic">No alerts yet...</p>
+                </div>
             </div>
         </div>
 
         <div class="col-span-6 space-y-6">
             <div id="map"></div>
-            
             <div class="grid grid-cols-4 gap-4">
                 <div class="card p-4 text-center">
-                    <p class="text-[10px] text-gray-500 mb-1">SPEED</p>
+                    <p class="text-[10px] text-gray-500">SPEED</p>
                     <p class="text-2xl font-bold text-cyan-400"><span id="speedVal">0</span> <small class="text-xs">KMH</small></p>
                 </div>
                 <div class="card p-4 text-center" id="oilBox">
-                    <p class="text-[10px] text-gray-500 mb-1">OIL DENSITY</p>
+                    <p class="text-[10px] text-gray-500">OIL DENSITY</p>
                     <p class="text-2xl font-bold text-blue-400"><span id="oilVal">0</span></p>
                 </div>
                 <div class="card p-5 flex items-center justify-between" id="brakeBox">
                     <div class="gauge-container"><div id="brakeGauge" class="gauge-fill"></div></div>
                     <div class="text-right">
-                        <p class="text-[9px] text-gray-500 uppercase">Brake Temp</p>
+                        <p class="text-[9px] text-gray-500">BRAKE TEMP</p>
                         <p class="text-xl font-bold" id="brakeText">0°C</p>
-                        <p id="brakeStatus" class="text-[10px] font-bold text-yellow-500">WARM</p>
+                        <p id="brakeStatus" class="text-[10px] font-bold text-yellow-500 uppercase">Warm</p>
                     </div>
                 </div>
                 <div class="card p-4 text-center">
-                    <p class="text-[10px] text-gray-500 mb-1 uppercase">Distance (M)</p>
+                    <p class="text-[10px] text-gray-500">DISTANCE (M)</p>
                     <p class="text-2xl font-bold text-yellow-500" id="distVal">0</p>
                 </div>
             </div>
-
             <div class="grid grid-cols-2 gap-4">
                 <div class="card p-4">
-                    <p class="text-[10px] text-gray-500 mb-2 uppercase">Fuel Turbidity</p>
+                    <p class="text-[10px] text-gray-500 uppercase">Fuel Turbidity</p>
                     <p class="text-3xl font-bold text-purple-400" id="turbVal">0.0</p>
-                    <p class="text-[10px] font-bold text-green-500 mt-1" id="turbStatus">CLEAN</p>
+                    <p id="turbStatus" class="text-[10px] font-bold text-green-500">CLEAN</p>
                 </div>
                 <div class="card p-4">
-                    <p class="text-[10px] text-gray-500 mb-3 uppercase">Fuel Purity Level</p>
+                    <p class="text-[10px] text-gray-500 uppercase mb-3">Fuel Purity Level</p>
                     <div class="h-3 w-full bg-gray-800 rounded-full overflow-hidden">
                         <div id="purityBar" class="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500" style="width: 10%;"></div>
                     </div>
-                    <p class="text-[9px] text-green-500 mt-2 italic">Fuel quality monitoring...</p>
                 </div>
             </div>
         </div>
 
         <div class="col-span-3 card p-6">
-            <p class="text-[11px] text-gray-400 uppercase font-bold mb-6">Seat Booking (54) <span class="float-right text-cyan-400" id="seatAvail">54 Avail</span></p>
+            <p class="text-[11px] text-gray-400 uppercase font-bold mb-6">Seats (54) <span class="float-right text-cyan-400" id="seatAvail">54 Avail</span></p>
             <div id="seatLayout"></div>
-            
             <div class="mt-8 space-y-6 text-center">
-                <div class="flex justify-between items-center bg-gray-900/40 p-2 rounded border border-white/5">
+                <div class="flex justify-between items-center bg-gray-900/40 p-2 rounded">
                     <span class="text-[11px] text-gray-400 uppercase">Sensor Mode</span>
                     <span id="modeText" class="text-[11px] font-bold text-cyan-400 uppercase">Entry</span>
                 </div>
-                <div class="flex items-center justify-center gap-4">
-                    <label class="switch"><input type="checkbox" id="modeToggle" onchange="updateMode()"><span class="slider"></span></label>
-                </div>
+                <label class="switch"><input type="checkbox" id="modeToggle" onchange="updateMode()"><span class="slider"></span></label>
                 <div>
-                    <p class="text-[10px] text-gray-500 uppercase tracking-widest">On Board (Max 100)</p>
-                    <p class="text-6xl font-bold text-white mt-1 shadow-glow" id="onBoardVal">0</p>
+                    <p class="text-[10px] text-gray-500 uppercase">On Board</p>
+                    <p class="text-6xl font-bold" id="onBoardVal">0</p>
                     <div class="mt-8 bg-yellow-500/10 py-3 rounded-xl border border-yellow-500/30">
-                        <p class="text-xs font-bold text-yellow-500 uppercase tracking-widest">ETA: <span id="etaVal">--</span> MIN</p>
+                        <p class="text-xs font-bold text-yellow-500 uppercase">ETA: <span id="etaVal">--</span> MIN</p>
                     </div>
                 </div>
             </div>
@@ -157,102 +149,167 @@
         const IP = "10.161.84.222"; 
         let map, busMarker, pathLine, speedChart;
         let lastIR = 0, totalEntered = 0, totalExited = 0, income = 0;
-        let currentPos = [7.157096237519262, 79.8730432510091];
-        const destination = [7.2091, 79.8418]; // Negambo Target
+        
+        const fixCoords = [7.157096237519262, 79.8730432510091];
+        let currentPos = [...fixCoords]; 
+        const destination = [7.2091, 79.8418];
+
+        let lastKnownPos = null;
+        let totalDistanceTraveled = 0;
+
+        // ✅ Flags to avoid duplicate log entries
+        let brakeAlerted = false;
+        let oilAlerted = false;
+        let busNearAlerted = false;
+        let busFullAlerted = false;
 
         function init() {
-            map = L.map('map').setView(currentPos, 15);
+            map = L.map('map').setView(fixCoords, 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            busMarker = L.marker(currentPos).addTo(map);
-            pathLine = L.polyline([], {color: '#22d3ee', weight: 4, opacity: 0.6}).addTo(map);
-
+            busMarker = L.marker(fixCoords).addTo(map);
+            pathLine = L.polyline([], {color: '#22d3ee', weight: 4}).addTo(map);
             setupCharts();
             renderSeats();
             setInterval(fetchData, 1500);
         }
 
+        function handleSimToggle() {
+            if (!document.getElementById('simToggle').checked) {
+                currentPos = [...fixCoords];
+                lastKnownPos = null;
+                totalDistanceTraveled = 0;
+                document.getElementById('distVal').innerText = 0;
+                busMarker.setLatLng(fixCoords);
+                map.panTo(fixCoords);
+                pathLine.setLatLngs([]);
+                // Reset alert flags on sim off
+                brakeAlerted = false;
+                oilAlerted = false;
+                busNearAlerted = false;
+            }
+        }
+
         async function fetchData() {
             try {
                 let data;
-                if (document.getElementById('simToggle').checked) {
-                    currentPos[0] += 0.00006; currentPos[1] += 0.00006;
-                    data = { speed_kmh: 44, passengers: lastIR + 1, brake_temp_c: 54, oil_density: 815, turbidity_ntu: 6.2, gps_lat: currentPos[0], gps_lng: currentPos[1] };
+                const simOn = document.getElementById('simToggle').checked;
+                if (simOn) {
+                    currentPos[0] += 0.0001; currentPos[1] -= 0.00005; 
+                    data = { speed_kmh: 42, passengers: lastIR + 1, brake_temp_c: 52, oil_density: 835, turbidity_ntu: 5.5, gps_lat: currentPos[0], gps_lng: currentPos[1] };
                 } else {
                     const res = await fetch(`http://${IP}/data`);
                     data = await res.json();
+                    if (!data.gps_lat) { data.gps_lat = fixCoords[0]; data.gps_lng = fixCoords[1]; }
                 }
                 updateUI(data);
-            } catch (e) { console.log("ESP Offline"); }
+            } catch (e) { 
+                if (!document.getElementById('simToggle').checked) {
+                    updateUI({ speed_kmh: 0, passengers: lastIR, brake_temp_c: 0, oil_density: 0, turbidity_ntu: 0, gps_lat: fixCoords[0], gps_lng: fixCoords[1] });
+                }
+            }
         }
 
         function updateUI(data) {
-            const busPos = [data.gps_lat || currentPos[0], data.gps_lng || currentPos[1]];
-            const dist = map.distance(busPos, destination);
-            document.getElementById('distVal').innerText = Math.round(dist);
-            
-            // 1. Proximity Alert (500m)
-            document.getElementById('proximityAlert').classList.toggle('hidden', dist > 500);
+            const busPos = [data.gps_lat, data.gps_lng];
 
-            // 2. Brake Alert (>50)
-            const bTemp = data.brake_temp_c;
-            document.getElementById('brakeText').innerText = bTemp.toFixed(1) + "°C";
-            document.getElementById('brakeGauge').style.height = Math.min(bTemp, 100) + "%";
-            const bBox = document.getElementById('brakeBox');
-            if (bTemp > 50) {
-                if (!bBox.classList.contains('alert-flash')) {
-                    showToast("🚨 BRAKE OVERHEATING!");
-                    addLog("BRAKE", "Critical Temperature detected!");
+            // Distance traveled
+            if (lastKnownPos === null) {
+                lastKnownPos = [...busPos];
+            } else {
+                const step = map.distance(lastKnownPos, busPos);
+                if (step > 0.5) {
+                    totalDistanceTraveled += step;
+                    lastKnownPos = [...busPos];
                 }
+            }
+            document.getElementById('distVal').innerText = Math.round(totalDistanceTraveled);
+
+            // Proximity alert - 500m from Katunayake (passenger waiting point)
+            const distToKatunayake = map.distance(busPos, fixCoords);
+            const distToDestination = map.distance(busPos, destination);
+            const isNear = distToKatunayake <= 500;
+            document.getElementById('proximityAlert').classList.toggle('hidden', !isNear);
+            if (isNear && !busNearAlerted) {
+                busNearAlerted = true;
+                addLog("BUS", "🚌 Bus is less than 500m from Katunayake!", "log-bus");
+                showToast("🚌 BUS ARRIVING SOON!");
+            }
+            if (!isNear) busNearAlerted = false;
+
+            // Brake Logic
+            document.getElementById('brakeText').innerText = (data.brake_temp_c || 0).toFixed(1) + "°C";
+            document.getElementById('brakeGauge').style.height = Math.min(data.brake_temp_c, 100) + "%";
+            const bBox = document.getElementById('brakeBox');
+            if (data.brake_temp_c > 50) {
                 bBox.classList.add('alert-flash');
                 document.getElementById('brakeStatus').innerText = "CRITICAL";
+                if (!brakeAlerted) {
+                    brakeAlerted = true;
+                    addLog("BRAKE", "🔥 Brake temp critical: " + data.brake_temp_c.toFixed(1) + "°C", "log-brake");
+                    showToast("🚨 BRAKE OVERHEAT!");
+                }
             } else {
                 bBox.classList.remove('alert-flash');
                 document.getElementById('brakeStatus').innerText = "WARM";
+                if (brakeAlerted) {
+                    brakeAlerted = false;
+                    addLog("BRAKE", "✅ Brake temp back to normal", "log-brake");
+                }
             }
 
-            // 3. Oil Density Alert (Safe: 820-860)
-            const dens = data.oil_density;
-            document.getElementById('oilVal').innerText = dens;
+            // Oil Logic
+            document.getElementById('oilVal').innerText = data.oil_density;
             const oBox = document.getElementById('oilBox');
-            if (dens < 820 || dens > 860) {
-                if (!oBox.classList.contains('alert-flash')) addLog("OIL", "Density out of range!");
+            if (data.oil_density > 0 && (data.oil_density < 820 || data.oil_density > 860)) {
                 oBox.classList.add('alert-flash');
+                if (!oilAlerted) {
+                    oilAlerted = true;
+                    addLog("OIL", "⚠️ Oil density out of range: " + data.oil_density, "log-oil");
+                    showToast("⚠️ OIL DENSITY ALERT!");
+                }
             } else {
                 oBox.classList.remove('alert-flash');
+                if (oilAlerted) {
+                    oilAlerted = false;
+                    addLog("OIL", "✅ Oil density back to normal", "log-oil");
+                }
             }
 
-            // 4. Passenger Logic (Max 100, Seat 54)
+            // Passengers
             if (data.passengers > lastIR) {
                 let diff = data.passengers - lastIR;
                 if (document.getElementById('modeToggle').checked) {
                     totalExited += diff;
                 } else {
-                    if ((totalEntered - totalExited) < 100) {
+                    const onBoardNow = totalEntered - totalExited;
+                    if (onBoardNow < 100) {
                         totalEntered += diff;
                         income += diff * parseFloat(document.getElementById('fareInput').value);
+                        busFullAlerted = false;
                     } else {
-                        showToast("⚠️ BUS FULL (100 PERSONS)!");
+                        if (!busFullAlerted) {
+                            busFullAlerted = true;
+                            addLog("FULL", "🚫 Bus is full! (100 persons max)", "log-full");
+                            showToast("⚠️ BUS FULL (100 PERSONS)!");
+                        }
                     }
                 }
             }
             lastIR = data.passengers;
-
             let onBoard = Math.max(0, totalEntered - totalExited);
             document.getElementById('onBoardVal').innerText = onBoard;
             document.getElementById('income').innerText = income.toFixed(2);
-            let sLeft = 54 - onBoard;
-            document.getElementById('seatAvail').innerText = (sLeft < 0 ? 0 : sLeft) + " Avail";
+            document.getElementById('seatAvail').innerText = Math.max(0, 54 - onBoard) + " Avail";
 
-            // Map & Visuals
+            // Map & Speed
             busMarker.setLatLng(busPos);
             pathLine.addLatLng(busPos);
             map.panTo(busPos);
-            if (data.speed_kmh > 5) document.getElementById('etaVal').innerText = Math.round((dist/1000)/data.speed_kmh*60);
-            document.getElementById('speedVal').innerText = Math.round(data.speed_kmh);
-            document.getElementById('turbVal').innerText = data.turbidity_ntu.toFixed(1);
+            document.getElementById('speedVal').innerText = Math.round(data.speed_kmh || 0);
+            document.getElementById('turbVal').innerText = (data.turbidity_ntu || 0).toFixed(1);
             document.getElementById('purityBar').style.width = (data.turbidity_ntu * 10) + "%";
-
-            updateChart(speedChart, data.speed_kmh);
+            if (data.speed_kmh > 5) document.getElementById('etaVal').innerText = Math.round((distToDestination / 1000) / data.speed_kmh * 60);
+            updateChart(speedChart, data.speed_kmh || 0);
         }
 
         function setupCharts() {
@@ -284,21 +341,31 @@
             document.getElementById('modeText').style.color = isExit ? "#ef4444" : "#22d3ee";
         }
 
-        function showToast(msg) {
-            const t = document.createElement('div');
-            t.className = "toast"; t.innerText = msg;
-            document.getElementById('toastContainer').appendChild(t);
-            setTimeout(() => t.remove(), 4000);
+        // ✅ addLog with color class support
+        function addLog(type, msg, colorClass = "log-brake") {
+            const log = document.getElementById('alertLog');
+            // Remove placeholder text if present
+            const placeholder = log.querySelector('p.italic');
+            if (placeholder) placeholder.remove();
+
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'mb-2 border-b border-white/5 pb-1';
+            entry.innerHTML = `<span class="${colorClass} font-bold">[${type}]</span> <span class='text-gray-500'>${time}</span><br><span class='text-gray-300'>${msg}</span>`;
+            log.insertBefore(entry, log.firstChild);
         }
 
-        function addLog(type, msg) {
-            const log = document.getElementById('alertLog');
-            const time = new Date().toLocaleTimeString();
-            log.innerHTML = `<div class='mb-2 border-b border-white/5 pb-1'><span class='text-cyan-400'>[${type}]</span> <span class='text-gray-500'>${time}</span><br><span class='text-gray-300'>${msg}</span></div>` + log.innerHTML;
+        function clearLog() {
+            document.getElementById('alertLog').innerHTML = '<p class="text-gray-600 text-[10px] italic">No alerts yet...</p>';
+        }
+
+        function showToast(msg) {
+            const t = document.createElement('div'); t.className = "toast"; t.innerText = msg;
+            document.getElementById('toastContainer').appendChild(t);
+            setTimeout(() => t.remove(), 3000);
         }
 
         window.onload = init;
     </script>
 </body>
-
 </html>
